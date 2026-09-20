@@ -1,3 +1,36 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require_once 'config.php';
+
+$error_msg = "";
+
+if (isset($_POST['submit_application'])) {
+    $fullname         = trim($_POST['fullname']);
+	$dob			  = trim($_POST['dob']);
+    $email            = trim($_POST['email']);
+    $phone            = trim($_POST['phone']);
+	$city             = trim($_POST['city']);
+    $pass_center      = trim($_POST['pass_center']);
+    $appointment_date = trim($_POST['appointment_date']);
+
+    // Generate Unique Application ID (e.g., PMPML-AllRoute-48291)
+    $application_token = "PMPML-AllRoute-" . rand(10000, 99999);
+
+    $stmt = $conn->prepare("INSERT INTO all_route_pass (application_token, fullname, dob, email, phone, city, pass_center, appointment_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssss", $application_token, $fullname, $dob, $email, $phone, $city, $pass_center, $appointment_date);
+
+    if ($stmt->execute()) {
+        header("Location: allroute_receipt.php?token=" . urlencode($application_token));
+        exit();
+    } else {
+        $error_msg = "Error submitting application: " . $conn->error;
+    }
+    $stmt->close();
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -272,14 +305,14 @@
             <p class="subtitle">Fill in your personal & educational details to apply for a monthly pass</p>
 
             <!-- Form includes enctype for handling image/document uploads -->
-            <form action="register_student.php" method="POST" enctype="multipart/form-data">
+            <form action="allroute_receipt.php" method="POST" enctype="multipart/form-data">
                 
                 <!-- Section 1: Personal Details -->
                 <div class="section-header">1. Personal Details</div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="fullname">Full Name (As per College ID)</label>
+                        <label for="fullname">Full Name</label>
                         <input type="text" id="fullname" name="fullname" placeholder="e.g. Rahul Sharma" required>
                     </div>
                     <div class="form-group">
@@ -291,7 +324,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="email">Email Address</label>
-                        <input type="email" id="email" name="email" placeholder="student@example.com" required>
+                        <input type="email" id="email" name="email" placeholder="person@example.com" required>
                     </div>
                     <div class="form-group">
                         <label for="phone">Mobile Number</label>
@@ -303,6 +336,11 @@
                     <label for="address">Residential Address</label>
                     <textarea id="address" name="address" rows="2" placeholder="Enter your full local address in Pune/PCMC" required></textarea>
                 </div>
+				
+				<div class="form-group">
+					<label for="city">City</label>
+					<input type="text" id="city" name="city" placeholder="e.g. Pimpri-Chinchwad" required>
+				</div>
 				
 				<!-- Section 2: Bus Route Details -->
                 <div class="section-header">2. Bus Details</div>
@@ -334,6 +372,11 @@
 						</select>
 					</div>
 					
+					<div class="form-group">
+						<label>Preferred Visit Date for Document Verification</label>
+						<input type="date" name="appointment_date" required min="<?php echo date('Y-m-d'); ?>">
+					</div>
+					
                 <!-- Monthly Fee Summary Box -->
                 <div class="fee-box">
                     <div>
@@ -344,7 +387,7 @@
                 </div>
 
                 <!-- Submit Button -->
-                <button type="submit" name="register_student_btn" class="btn-submit">Submit Application</button>
+                <button type="submit" name="submit_application" class="btn-submit">Submit Application</button>
             </form>
 
             <div class="card-footer">
