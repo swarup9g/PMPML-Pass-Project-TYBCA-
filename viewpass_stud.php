@@ -1,7 +1,9 @@
 <?php
 require_once 'config.php';
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
-$token = trim($_GET['token'] ?? $_POST['token'] ?? $_SESSION['application_token'] ?? '');$application = null;
+$token = trim($_GET['token'] ?? $_POST['token'] ?? $_SESSION['application_token'] ?? '');
+$application = null;
 
 if ($token) {
     $stmt = $conn->prepare("SELECT * FROM pass_applications WHERE application_token = ? AND status = 'ACTIVE'");
@@ -10,6 +12,28 @@ if ($token) {
     $application = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 }
+
+// Determine valid expiry date with safety fallback
+if (!empty($application['expiry_date']) && $application['expiry_date'] !== '0000-00-00 00:00:00') {
+    $expiry_timestamp = strtotime($application['expiry_date']);
+} else {
+    // Fallback: 30 days after approval date or creation date
+    $base_date = !empty($application['approved_at']) ? $application['approved_at'] : $application['created_at'];
+    $expiry_timestamp = strtotime('+30 days', strtotime($base_date));
+}
+
+// Calculate Days Left
+$current_timestamp = time();
+$seconds_left = $expiry_timestamp - $current_timestamp;
+$days_left = ceil($seconds_left / (60 * 60 * 24));
+
+if ($days_left < 0) {
+    $days_left = 0;
+    $is_expired = true;
+} else {
+    $is_expired = false;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -150,6 +174,27 @@ if ($token) {
                 <div class="pass-footer">
                     <div><strong>Applied:</strong> <?php echo htmlspecialchars($application['created_at']); ?></div>
                     <div><strong>Approved:</strong> <?php echo htmlspecialchars($application['approved_at']); ?></div>
+                </div>
+            </div>
+			
+			<!-- Start Date, Expiry Date & Remaining Days Counter -->
+                <div style="margin-top:15px; border-top:1px solid rgba(255,255,255,0.3); padding-top:12px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+						<div><strong>Valid From:</strong><br> <?php echo date('d-M-Y', !empty($application['approved_at']) ? strtotime($application['approved_at']) : strtotime($application['created_at'])); ?></div>
+						<div style="text-align:right;"><strong>Valid Till:</strong><br> <?php echo date('d-M-Y', $expiry_timestamp); ?></div>
+                    </div>
+
+                    <div style="text-align:center;">
+                        <?php if (!$is_expired): ?>
+                            <div class="counter-badge">
+                                ⏳ <strong><?php echo $days_left; ?> Days Left</strong> until pass expires
+                            </div>
+                        <?php else: ?>
+                            <div class="counter-badge expired-badge">
+                                ❌ Pass Expired on <?php echo date('d-M-Y', strtotime($application['expiry_date'])); ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
