@@ -8,9 +8,13 @@ $msg = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_now'])) {
     $token_to_pay = $_POST['token_to_pay'];
     $txn_id = "TXN" . rand(10000000, 99999999);
+	
+	// Calculate start date (now) and expiry date (+30 days)
+    $start_date = date('Y-m-d H:i:s');
+    $expiry_date = date('Y-m-d H:i:s', strtotime('+30 days'));
     
-    $stmt = $conn->prepare("UPDATE pass_applications SET status = 'ACTIVE', payment_status = 'COMPLETED', payment_id = ? WHERE application_token = ?");
-    $stmt->bind_param("ss", $txn_id, $token_to_pay);
+	$stmt = $conn->prepare("UPDATE pass_applications SET status = 'ACTIVE', payment_status = 'COMPLETED', payment_id = ?, approved_at = ?, expiry_date = ? WHERE application_token = ?");
+    $stmt->bind_param("ssss", $txn_id, $start_date, $expiry_date, $token_to_pay);
     
     if ($stmt->execute()) {
         header("Location: viewpass_stud.php?token=" . urlencode($token_to_pay));
@@ -181,7 +185,7 @@ if ($token) {
                     <p style="font-size:0.9rem; color:#555; margin-top:5px;">Your documents and physical live photo were verified by Admin. Proceed to pay and generate pass.</p>
                     <form method="POST">
                         <input type="hidden" name="token_to_pay" value="<?php echo htmlspecialchars($application['application_token']); ?>">
-                        <button type="submit" name="pay_now" class="btn-pay" >Pay ₹750 Online & Activate Pass</button>
+                        <button type="submit" name="pay_now" class="btn-pay" >Pay ₹750 Online & Activate Pass</button	>
                     </form>
                 </div>
 
